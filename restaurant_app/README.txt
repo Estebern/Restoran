@@ -1,0 +1,1 @@
+PS anu itu ada beberapa codingan atau/dan database yang tidak ada fungsinya sama sekali tapi saya takut hapus karena lupa yang mana yang gadipake sama sekali.... mohon maaf

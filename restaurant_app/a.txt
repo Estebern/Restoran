@@ -1,0 +1,285 @@
+<?php
+session_start();
+require 'db.php';
+
+// Check if user is logged in and is a normal user
+if (!isset($_SESSION['id_user']) || $_SESSION['id_level'] != 2) {
+    header("Location: index.php");
+    exit();
+}
+
+// Fetch current orders for the user
+$id_user = $_SESSION['id_user'];
+$orders = $conn->query("
+    SELECT o.id_order, o.id_masakan, m.nama_masakan, m.harga, o.quantity, o.status
+    FROM orders o
+    JOIN masakan m ON o.id_masakan = m.id_masakan
+    WHERE o.id_user = $id_user AND o.status != 'completed'
+");
+
+// Calculate total order price
+$totalPrice = 0;
+if ($orders->num_rows > 0) {
+    while ($order = $orders->fetch_assoc()) {
+        $totalPrice += $order['harga'] * $order['quantity'];
+    }
+}
+?>
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>View Orders</title>
+    <style>
+        /* Sidebar Styles */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 0;
+        }
+
+        .sidebar {
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 250px;
+            background-color: #212529;
+            color: #fff;
+            padding: 20px;
+        }
+
+        .sidebar h2 {
+            margin-top: 0;
+        }
+
+        .sidebar a {
+            color: #ddd;
+            text-decoration: none;
+            display: block;
+            margin: 15px 0;
+            padding: 12px;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+
+        .sidebar a:hover, .sidebar a.active {
+            background-color: #495057;
+            color: #fff;
+        }
+
+        .content {
+            margin-left: 250px;
+            padding: 40px;
+        }
+
+        /* Table Styles */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        table th, table td {
+            padding: 12px;
+            text-align: left;
+            border: 1px solid #ddd;
+        }
+
+        table th {
+            background-color: #343a40;
+            color: white;
+        }
+
+        /* Summary and Buttons */
+        .cart-summary {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f1f1f1;
+            border-radius: 5px;
+        }
+
+        .cart-summary h3 {
+            font-size: 18px;
+        }
+
+        .checkout-button, .empty-cart-button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 15px;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+
+        .checkout-button:hover, .empty-cart-button:hover {
+            background-color: #0056b3;
+        }
+
+        .empty-cart {
+            margin-top: 20px;
+        }
+
+        .empty-cart a {
+            background-color: #dc3545;
+        }
+
+        .empty-cart a:hover {
+            background-color: #c82333;
+        }
+
+        .form-container {
+            display: flex;
+            align-items: center;
+        }
+
+        .form-container input[type="number"] {
+            padding: 5px;
+            width: 50px;
+            margin-right: 10px;
+        }
+
+        .form-container button {
+            padding: 5px 10px;
+            background-color: #28a745;
+            border: none;
+            color: white;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+
+        .form-container button:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <h2>User Dashboard</h2>
+    <a href="index.php">Home</a>
+    <a href="view_cart.php" class="active">View Orders</a>
+    <a href="logout.php">Logout</a>
+</div>
+
+<div class="content">
+    <h1>Your Orders</h1>
+    <?php if ($orders->num_rows > 0) : ?>
+        <table>
+            <thead>
+                <tr>
+                    <th>Item</th>
+                    <th>Price</th>
+                    <th>Quantity</th>
+                    <th>Total</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php
+                // Reset the pointer for the orders to loop again
+                $orders->data_seek(0);
+                while ($order = $orders->fetch_assoc()) : ?>
+                    <tr>
+                        <td><?php echo $order['nama_masakan']; ?></td>
+                        <td>Rp<?php echo number_format($order['harga'], 2); ?></td>
+                        <td>
+                            <form method="POST" action="update_order.php" class="form-container">
+                                <input type="number" name="quantity" value="<?php echo $order['quantity']; ?>" min="1">
+                                <input type="hidden" name="id_order" value="<?php echo $order['id_order']; ?>">
+                                <button type="submit" name="update_quantity">Update</button>
+                            </form>
+                        </td>
+                        <td>Rp<?php echo number_format($order['harga'] * $order['quantity'], 2); ?></td>
+                        <td><?php echo ucfirst($order['status']); ?></td>
+                        <td>
+                            <a href="cancel_order.php?id_order=<?php echo $order['id_order']; ?>">Cancel</a>
+                        </td>
+                    </tr>
+                <?php endwhile; ?>
+            </tbody>
+        </table>
+
+        <!-- Total Price -->
+        <div class="cart-summary">
+            <h3>Total: Rp<?php echo number_format($totalPrice, 2); ?></h3>
+            <a href="checkout.php" class="checkout-button">Proceed to Checkout</a>
+        </div>
+
+        <!-- Empty Cart Button -->
+        <div class="empty-cart">
+            <a href="empty_cart.php" class="empty-cart-button">Empty Orders</a>
+        </div>
+    <?php else : ?>
+        <p>Your orders are empty!</p>
+    <?php endif; ?>
+</div>
+
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+<?php
+session_start();
+require 'db.php';
+
+// Check if the user is logged in
+if (!isset($_SESSION['id_user']) || $_SESSION['id_level'] != 2) {
+    header("Location: index.php");
+    exit();
+}
+
+$id_user = $_SESSION['id_user'];
+
+// Fetch cart items for the user
+$cartItems = $conn->query("SELECT c.id_masakan, c.quantity, m.harga
+                           FROM cart c
+                           JOIN masakan m ON c.id_masakan = m.id_masakan
+                           WHERE c.id_user = $id_user");
+
+if ($cartItems->num_rows > 0) {
+    // Insert each item from the cart into the orders table
+    while ($item = $cartItems->fetch_assoc()) {
+        $id_masakan = $item['id_masakan'];
+        $quantity = $item['quantity'];
+        $harga = $item['harga'];
+        $status = 'pending';  // Orders start as "pending"
+
+        // Prepare the SQL query
+        $stmt = $conn->prepare("INSERT INTO orders (id_user, id_masakan, quantity, harga, status) 
+                               VALUES (?, ?, ?, ?, ?)");
+
+        // Check if the prepare statement failed
+        if ($stmt === false) {
+            die('MySQL prepare error: ' . $conn->error);
+        }
+
+        // Bind parameters to the SQL query
+        $stmt->bind_param("iiiss", $id_user, $id_masakan, $quantity, $harga, $status);
+        
+        // Execute the query and check for errors
+        if (!$stmt->execute()) {
+            die('Execute error: ' . $stmt->error);
+        }
+    }
+
+    // After successful insertion, clear the cart (optional)
+    $conn->query("DELETE FROM cart WHERE id_user = $id_user");
+
+    // Redirect to a confirmation page or back to the cart
+    header("Location: order_confirmation.php");
+    exit();
+} else {
+    echo "Your cart is empty!";
+}
+?>
